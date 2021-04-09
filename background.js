@@ -1,3 +1,6 @@
+const tabs = chrome.tabs
+const windows = chrome.windows
+
 function switchTabs(tabid) {
   // find the tab
   chrome.tabs.get(tabid, function (tab) {
@@ -26,6 +29,20 @@ function getMinAndMaxIndex(tabs) {
 function init() {
   var timer = null;
   var udpateContextMenuTimer = null;
+  var updateTitleTimer = null;
+
+  function updateAllTabTitles() {
+    function _updateAllTabs() {
+      chrome.tabs.query({currentWindow: true}, function (tabs) {
+        tabs.forEach(tab => updateTab(tab, tabs))
+        updateTitleTimer = null;
+      })
+    }
+    if(updateTitleTimer != null){
+      clearTimeout(updateTitleTimer)
+    }
+    setTimeout(_updateAllTabs, 10)
+  }
 
   function newTab() {
     chrome.tabs.create({index: 0});
@@ -108,15 +125,19 @@ function init() {
                 chrome.tabs.update(tabId, {active: true});
               }
             }
+            var title = t.title
+            if (title.length > 16) {
+              title = title.substring(0, 15)
+            }
             chrome.contextMenus.create({
-              title: (i + 1).toString() + '. ' + t.title.substring(0, 15),
+              title: '#' + title,
               contexts: ["all"],
               onclick: click(t.id)
             }, function () {
             });
           }
 
-          if (udpateContextMenuTimer!= null) {
+          if (udpateContextMenuTimer != null) {
             udpateContextMenuTimer = null;
           }
         });
@@ -126,18 +147,26 @@ function init() {
     if (udpateContextMenuTimer == null) {
       udpateContextMenuTimer = setTimeout(_updateContextMenus, 100);
     }
-
-
   }
+
+  tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    updateAllTabTitles()
+  })
+
+  tabs.onAttached.addListener(function (tabId, attachInfo) {
+    updateAllTabTitles()
+  })
 
   chrome.tabs.onMoved.addListener(function () {
     updateContextMenus();
+    updateAllTabTitles();
   });
   chrome.tabs.onCreated.addListener(function () {
     updateContextMenus();
   });
   chrome.tabs.onRemoved.addListener(function () {
     updateContextMenus();
+    updateAllTabTitles();
   });
   chrome.tabs.onActivated.addListener(function (tabId) {
     updateContextMenus(tabId);
@@ -163,6 +192,7 @@ function init() {
               }
             }
             chrome.tabs.move(ids, {index: 0}, function () {
+              updateAllTabTitles()
               if (chrome.runtime.lastError) {
               } else if (chrome.tabs.group) {
                 chrome.tabs.group({groupId: t1.groupId, tabIds: ids}, function () {
@@ -175,6 +205,7 @@ function init() {
           });
         } else {
           chrome.tabs.move(t1.id, {index: 0}, function () {
+            updateAllTabTitles()
             if (chrome.runtime.lastError) {
             }
           });
@@ -189,11 +220,11 @@ function init() {
 
   chrome.commands.onCommand.addListener(function (command) {
 
-    if (command === "right-tab") {
+    if (command.startsWith("right-tab")) {
       rightTab();
     }
 
-    else if (command === "left-tab") {
+    else if (command.startsWith("left-tab")) {
       chrome.tabs.query({currentWindow: true}, function (tabs) {
         var nextIndex = 0;
         var [minIndex, maxIndex] = getMinAndMaxIndex(tabs);
@@ -222,6 +253,10 @@ function init() {
       newTab();
     } else if (command === "right-tab-skip-same-group") {
       rightTab({skipSameGroup: true});
+    } else if(command === 'fullscreen'){
+      windows.getCurrent({}, function(win){
+        windows.update(win.id, {state: 'fullscreen'})
+      })
     }
   });
 }
@@ -232,3 +267,33 @@ function log(msg) {
   chrome.extension.getBackgroundPage().console.log(msg);
 }
 
+
+function updateTab(tab, allTabs) {
+  const {id, index, url, title} = tab
+
+  if (url.startsWith('chrome://')) {
+    return
+  }
+
+  const prefixRegEx = /^\#[0-9]+ /g
+  const num = index + 1
+  let newPrefix = `#${num} `
+  const hasPrefix = prefixRegEx.exec(title)
+  if (hasPrefix && hasPrefix[0] && hasPrefix[0] === newPrefix) {
+    return
+  } else if (hasPrefix) {
+    newPrefix += title.split(prefixRegEx)[1]
+  } else {
+    newPrefix += title
+  }
+
+  try {
+    const script = {code: `document.title = '${newPrefix}'`}
+    chrome.tabs.executeScript(id, script, function () {
+      if (chrome.runtime.lastError) {
+      }
+    })
+  } catch (e) {
+    console.error(e)
+  }
+}

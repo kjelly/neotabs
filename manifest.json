@@ -17,22 +17,44 @@
   "permissions": [
     "tabs",
     "system.memory",
-    "contextMenus"
+    "contextMenus",
+    "<all_urls>"
 
   ],
   "version": "2021.1.20",
   "commands": {
+    "fullscreen": {
+      "description": "fullscreen"
+    },
+    "left-tab": {
+      "description": "left tab",
+      "suggested_key": {
+        "default": "Ctrl+Q",
+        "mac": "Command+Q"
+      }
+    },
     "right-tab": {
       "description": "right tab"
     },
+    "left-tab1": {
+      "description": "left tab1"
+    },
+    "right-tab1": {
+      "description": "right tab1"
+    },
     "right-tab-skip-same-group": {
-      "description": "right tab but skip the same group."
+      "description": "right tab but skip the same group.",
+      "suggested_key": {
+        "default": "Ctrl+Shift+G",
+        "mac": "Command+Shift+G"
+      }
     },
     "new-tab": {
-      "description": "new tab"
-    },
-    "left-tab": {
-      "description": "left tab"
+      "description": "new tab",
+      "suggested_key": {
+        "default": "Ctrl+Shift+Z",
+        "mac": "Command+Shift+Z"
+      }
     }
   }
 }
