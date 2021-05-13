@@ -1,24 +1,21 @@
 {
   "background": {
-    "scripts": [
-      "background.js"
-    ]
+    "service_worker": "background.js"
   },
-  "browser_action": {},
   "description": "Another Tab Manager",
   "icons": {
     "128": "assets/tabs-128.png"
   },
   "minimum_chrome_version": "25",
-  "manifest_version": 2,
+  "manifest_version": 3,
   "offline_enabled": true,
   "name": "NeoTabs",
   "options_page": "",
   "permissions": [
     "tabs",
+    "tabGroups",
     "system.memory",
-    "contextMenus",
-    "<all_urls>"
+    "contextMenus"
 
   ],
   "version": "2021.1.20",
@@ -42,6 +39,13 @@
     "right-tab1": {
       "description": "right tab1"
     },
+    "toggle-collapse": {
+      "description": "collapse the group.",
+      "suggested_key": {
+        "default": "Ctrl+Shift+Z",
+        "mac": "Command+Shift+Z"
+      }
+    },
     "right-tab-skip-same-group": {
       "description": "right tab but skip the same group.",
       "suggested_key": {
@@ -52,8 +56,8 @@
     "new-tab": {
       "description": "new tab",
       "suggested_key": {
-        "default": "Ctrl+Shift+Z",
-        "mac": "Command+Shift+Z"
+        "default": "Ctrl+Shift+N",
+        "mac": "Command+Shift+N"
       }
     }
   }

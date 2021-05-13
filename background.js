@@ -38,14 +38,76 @@ function init() {
         updateTitleTimer = null;
       })
     }
-    if(updateTitleTimer != null){
+    if (updateTitleTimer != null) {
       clearTimeout(updateTitleTimer)
     }
     setTimeout(_updateAllTabs, 10)
   }
 
   function newTab() {
-    chrome.tabs.create({index: 0});
+    chrome.tabs.query({currentWindow: true, active: true}, function (tabs) {
+      let tab = tabs[0]
+      chrome.tabs.create({index: 0, openerTabId: tab.id}, function (newTab) {
+        if (tab.groupId != -1) {
+          chrome.tabs.group({groupId: tab.groupId, tabIds: [newTab.id]})
+        }
+      });
+    })
+  }
+
+  function leftTab(options) {
+    if (!options) {
+      options = {};
+    }
+    chrome.windows.getLastFocused({populate: false, windowTypes: ['normal', 'popup']}, function (window) {
+      if (window.focused) {
+        chrome.tabs.query({currentWindow: true}, function (tabs) {
+          var nextIndex = 0;
+          var [minIndex, maxIndex] = getMinAndMaxIndex(tabs);
+          console.log(minIndex)
+          console.log(maxIndex)
+          var activeTab = null;
+          for (var i = 0; i < tabs.length; i++) {
+            t = tabs[i];
+            if (t.active) {
+              nextIndex = t.index - 1;
+              activeTab = t;
+            }
+          }
+          if (nextIndex > maxIndex) {
+            nextIndex = minIndex;
+          } else if (nextIndex < minIndex) {
+            nextIndex = maxIndex;
+          }
+          console.log(nextIndex)
+
+          chrome.tabGroups.query({collapsed: true}).then((tabGroups) => {
+            console.log(tabGroups)
+            tabGroups = tabGroups.map((x) => x.id)
+
+            var nextTab = tabs[0].id;
+            for (var i = tabs.length - 1; i >= 0; i--) {
+              t = tabs[i];
+              if (t.groupId != -1 && tabGroups.includes(t.groupId)) {
+              }
+              else if (options['skipSameGroup'] === true && activeTab.groupId != -1
+                && t.groupId != activeTab.groupId && t.index <= nextIndex) {
+                nextTab = t.id;
+                break;
+              }
+              else if ((options['skipSameGroup'] != true || activeTab.groupId == -1) && t.index <= nextIndex) {
+                nextTab = t.id;
+                break;
+              }
+
+            }
+            switchTabs(nextTab);
+
+          })
+
+        });
+      }
+    });
   }
 
   function rightTab(options) {
@@ -70,27 +132,37 @@ function init() {
           } else if (nextIndex < minIndex) {
             nextIndex = maxIndex;
           }
-          var nextTab = tabs[0].id;
-          for (var i = 0; i < tabs.length; i++) {
-            t = tabs[i];
-            if (options['skipSameGroup'] === true && activeTab.groupId != -1 && t.groupId != activeTab.groupId && t.index > nextIndex) {
-              nextTab = t.id;
-              break;
+
+          chrome.tabGroups.query({collapsed: true}).then((tabGroups) => {
+            console.log(tabGroups)
+            tabGroups = tabGroups.map((x) => x.id)
+
+            var nextTab = tabs[0].id;
+            for (var i = 0; i < tabs.length; i++) {
+              t = tabs[i];
+              if (t.groupId != -1 && tabGroups.includes(t.groupId)) {
+              }
+              else if (options['skipSameGroup'] === true && activeTab.groupId != -1
+                && t.groupId != activeTab.groupId && t.index >= nextIndex) {
+                nextTab = t.id;
+                break;
+
+              }
+              else if ((options['skipSameGroup'] != true || activeTab.groupId == -1) && t.index >= nextIndex) {
+                nextTab = t.id;
+                break;
+              }
 
             }
-            else if ((options['skipSameGroup'] != true || activeTab.groupId == -1) && t.index === nextIndex) {
-              nextTab = t.id;
-              break;
-            }
-
-          }
-          switchTabs(nextTab);
+            switchTabs(nextTab);
+          })
         });
       }
     });
   }
 
   function updateContextMenus() {
+    return
     function _updateContextMenus() {
       chrome.tabs.query({currentWindow: true, active: false}, function (tabs1) {
         tabs1.sort(
@@ -109,6 +181,7 @@ function init() {
 
           });
           chrome.contextMenus.create({
+            id: 'neotabs-uuid',
             title: "close tab",
             contexts: ["all"],
             onclick: function (info, tab) {
@@ -131,6 +204,7 @@ function init() {
             }
             chrome.contextMenus.create({
               title: '#' + title,
+              id: '#' + title,
               contexts: ["all"],
               onclick: click(t.id)
             }, function () {
@@ -181,35 +255,21 @@ function init() {
         if (t1 === undefined) {
           return;
         }
-        if (t1.groupId != -1) {
-
-          chrome.tabs.query({currentWindow: true, pinned: false}, function (tabs2) {
-            var ids = [t1.id];
-            for (var i = 0; i < tabs2.length; i++) {
-              var t = tabs2[i];
-              if (t.id !== tabId && t.groupId == t1.groupId) {
-                ids.push(t.id);
-              }
-            }
-            chrome.tabs.move(ids, {index: 0}, function () {
+        chrome.tabs.query({currentWindow: true, pinned: true}, function (pinnedTabs) {
+          var index = pinnedTabs.length
+          if (t1.groupId != -1) {
+            chrome.tabGroups.move(t1.groupId, {index: index}, function () {
+              chrome.tabs.move(t1.id, {index: index}, function () {
+              });
+            });
+          } else {
+            chrome.tabs.move(t1.id, {index: index}, function () {
               updateAllTabTitles()
               if (chrome.runtime.lastError) {
-              } else if (chrome.tabs.group) {
-                chrome.tabs.group({groupId: t1.groupId, tabIds: ids}, function () {
-                  if (chrome.runtime.lastError) {
-                  }
-                });
               }
             });
-
-          });
-        } else {
-          chrome.tabs.move(t1.id, {index: 0}, function () {
-            updateAllTabTitles()
-            if (chrome.runtime.lastError) {
-            }
-          });
-        }
+          }
+        })
       });
     }
 
@@ -219,81 +279,39 @@ function init() {
 
 
   chrome.commands.onCommand.addListener(function (command) {
-
-    if (command.startsWith("right-tab")) {
-      rightTab();
-    }
-
-    else if (command.startsWith("left-tab")) {
-      chrome.tabs.query({currentWindow: true}, function (tabs) {
-        var nextIndex = 0;
-        var [minIndex, maxIndex] = getMinAndMaxIndex(tabs);
-        for (var i = 0; i < tabs.length; i++) {
-          t = tabs[i];
-          if (t.active) {
-            nextIndex = t.index - 1;
-          }
-        }
-        if (nextIndex > maxIndex) {
-          nextIndex = minIndex;
-        } else if (nextIndex < minIndex) {
-          nextIndex = maxIndex;
-        }
-        var nextTab = tabs[0].id;
-        for (var i = 0; i < tabs.length; i++) {
-          t = tabs[i];
-          if (t.index === nextIndex) {
-            nextTab = t.id;
-          }
-        }
-        switchTabs(nextTab);
-      });
-    }
-    else if (command === "new-tab") {
-      newTab();
-    } else if (command === "right-tab-skip-same-group") {
+    if (command === "right-tab-skip-same-group") {
       rightTab({skipSameGroup: true});
-    } else if(command === 'fullscreen'){
-      windows.getCurrent({}, function(win){
-        windows.update(win.id, {state: 'fullscreen'})
-      })
-    }
+    } else
+      if (command.startsWith("right-tab")) {
+        rightTab();
+      }
+
+      else if (command.startsWith("left-tab")) {
+        leftTab();
+      }
+      else if (command === "new-tab") {
+        newTab();
+      } else if (command === 'fullscreen') {
+        windows.getCurrent({}, function (win) {
+          windows.update(win.id, {state: 'fullscreen'})
+        })
+      } else if (command === 'toggle-collapse') {
+        chrome.tabs.query({currentWindow: true, active: true}).then((tabs) => {
+          var t = tabs[0]
+          if (t.groupId != -1) {
+            chrome.tabGroups.get(t.groupId).then((group) => {
+              if (group.collapsed) {
+                chrome.tabGroups.update(t.groupId, {collapsed: false})
+              } else {
+                chrome.tabGroups.update(t.groupId, {collapsed: true})
+              }
+
+            })
+          }
+        })
+      }
   });
 }
 
-init();
+init()
 
-function log(msg) {
-  chrome.extension.getBackgroundPage().console.log(msg);
-}
-
-
-function updateTab(tab, allTabs) {
-  const {id, index, url, title} = tab
-
-  if (url.startsWith('chrome://')) {
-    return
-  }
-
-  const prefixRegEx = /^\#[0-9]+ /g
-  const num = index + 1
-  let newPrefix = `#${num} `
-  const hasPrefix = prefixRegEx.exec(title)
-  if (hasPrefix && hasPrefix[0] && hasPrefix[0] === newPrefix) {
-    return
-  } else if (hasPrefix) {
-    newPrefix += title.split(prefixRegEx)[1]
-  } else {
-    newPrefix += title
-  }
-
-  try {
-    const script = {code: `document.title = '${newPrefix}'`}
-    chrome.tabs.executeScript(id, script, function () {
-      if (chrome.runtime.lastError) {
-      }
-    })
-  } catch (e) {
-    console.error(e)
-  }
-}
