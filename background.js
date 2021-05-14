@@ -33,8 +33,8 @@ function init() {
 
   function updateAllTabTitles() {
     function _updateAllTabs() {
-      chrome.tabs.query({currentWindow: true}, function (tabs) {
-        tabs.forEach(tab => updateTab(tab, tabs))
+      chrome.tabs.query({currentWindow: true}, function (currentTabs) {
+        currentTabs.forEach(tab => updateTab(tab, currentTabs))
         updateTitleTimer = null;
       })
     }
@@ -45,8 +45,8 @@ function init() {
   }
 
   function newTab() {
-    chrome.tabs.query({currentWindow: true, active: true}, function (tabs) {
-      let tab = tabs[0]
+    chrome.tabs.query({currentWindow: true, active: true}, function (activeTabs) {
+      let tab = activeTabs[0]
       chrome.tabs.create({index: 0, openerTabId: tab.id}, function (newTab) {
         if (tab.groupId != -1) {
           chrome.tabs.group({groupId: tab.groupId, tabIds: [newTab.id]})
@@ -61,14 +61,12 @@ function init() {
     }
     chrome.windows.getLastFocused({populate: false, windowTypes: ['normal', 'popup']}, function (window) {
       if (window.focused) {
-        chrome.tabs.query({currentWindow: true}, function (tabs) {
+        chrome.tabs.query({currentWindow: true}, function (currentTabs) {
           var nextIndex = 0;
-          var [minIndex, maxIndex] = getMinAndMaxIndex(tabs);
-          console.log(minIndex)
-          console.log(maxIndex)
+          var [minIndex, maxIndex] = getMinAndMaxIndex(currentTabs);
           var activeTab = null;
-          for (var i = 0; i < tabs.length; i++) {
-            t = tabs[i];
+          for (var i = 0; i < currentTabs.length; i++) {
+            t = currentTabs[i];
             if (t.active) {
               nextIndex = t.index - 1;
               activeTab = t;
@@ -79,15 +77,11 @@ function init() {
           } else if (nextIndex < minIndex) {
             nextIndex = maxIndex;
           }
-          console.log(nextIndex)
-
           chrome.tabGroups.query({collapsed: true}).then((tabGroups) => {
-            console.log(tabGroups)
             tabGroups = tabGroups.map((x) => x.id)
-
-            var nextTab = tabs[0].id;
-            for (var i = tabs.length - 1; i >= 0; i--) {
-              t = tabs[i];
+            var nextTab = currentTabs[0].id;
+            for (var i = currentTabs.length - 1; i >= 0; i--) {
+              t = currentTabs[i];
               if (t.groupId != -1 && tabGroups.includes(t.groupId)) {
               }
               else if (options['skipSameGroup'] === true && activeTab.groupId != -1
@@ -99,12 +93,9 @@ function init() {
                 nextTab = t.id;
                 break;
               }
-
             }
             switchTabs(nextTab);
-
           })
-
         });
       }
     });
@@ -116,12 +107,12 @@ function init() {
     }
     chrome.windows.getLastFocused({populate: false, windowTypes: ['normal', 'popup']}, function (window) {
       if (window.focused) {
-        chrome.tabs.query({currentWindow: true}, function (tabs) {
+        chrome.tabs.query({currentWindow: true}, function (currentTabs) {
           var nextIndex = 0;
-          var [minIndex, maxIndex] = getMinAndMaxIndex(tabs);
+          var [minIndex, maxIndex] = getMinAndMaxIndex(currentTabs);
           var activeTab = null;
-          for (var i = 0; i < tabs.length; i++) {
-            t = tabs[i];
+          for (var i = 0; i < currentTabs.length; i++) {
+            t = currentTabs[i];
             if (t.active) {
               nextIndex = t.index + 1;
               activeTab = t;
@@ -132,27 +123,24 @@ function init() {
           } else if (nextIndex < minIndex) {
             nextIndex = maxIndex;
           }
-
           chrome.tabGroups.query({collapsed: true}).then((tabGroups) => {
             console.log(tabGroups)
             tabGroups = tabGroups.map((x) => x.id)
 
-            var nextTab = tabs[0].id;
-            for (var i = 0; i < tabs.length; i++) {
-              t = tabs[i];
+            var nextTab = currentTabs[0].id;
+            for (var i = 0; i < currentTabs.length; i++) {
+              t = currentTabs[i];
               if (t.groupId != -1 && tabGroups.includes(t.groupId)) {
               }
               else if (options['skipSameGroup'] === true && activeTab.groupId != -1
                 && t.groupId != activeTab.groupId && t.index >= nextIndex) {
                 nextTab = t.id;
                 break;
-
               }
               else if ((options['skipSameGroup'] != true || activeTab.groupId == -1) && t.index >= nextIndex) {
                 nextTab = t.id;
                 break;
               }
-
             }
             switchTabs(nextTab);
           })
@@ -250,8 +238,8 @@ function init() {
     }
 
     function moveTab() {
-      chrome.tabs.query({currentWindow: true, active: true, pinned: false}, function (tabs1) {
-        var t1 = tabs1[0];
+      chrome.tabs.query({currentWindow: true, active: true, pinned: false}, function (activeTabs) {
+        var t1 = activeTabs[0];
         if (t1 === undefined) {
           return;
         }
@@ -296,8 +284,8 @@ function init() {
           windows.update(win.id, {state: 'fullscreen'})
         })
       } else if (command === 'toggle-collapse') {
-        chrome.tabs.query({currentWindow: true, active: true}).then((tabs) => {
-          var t = tabs[0]
+        chrome.tabs.query({currentWindow: true, active: true}).then((activeTabs) => {
+          var t = activeTabs[0]
           if (t.groupId != -1) {
             chrome.tabGroups.get(t.groupId).then((group) => {
               if (group.collapsed) {
