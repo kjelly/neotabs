@@ -32,25 +32,12 @@ function init() {
   var updateTitleTimer = null;
 
   function updateAllTabTitles() {
-    function _updateAllTabs() {
-      chrome.tabs.query({currentWindow: true}, function (currentTabs) {
-        currentTabs.forEach(tab => updateTab(tab, currentTabs))
-        updateTitleTimer = null;
-      })
-    }
-    if (updateTitleTimer != null) {
-      clearTimeout(updateTitleTimer)
-    }
-    setTimeout(_updateAllTabs, 10)
   }
 
   function newTab() {
     chrome.tabs.query({currentWindow: true, active: true}, function (activeTabs) {
       let tab = activeTabs[0]
       chrome.tabs.create({index: 0, openerTabId: tab.id}, function (newTab) {
-        if (tab.groupId != -1) {
-          chrome.tabs.group({groupId: tab.groupId, tabIds: [newTab.id]})
-        }
       });
     })
   }
@@ -77,25 +64,16 @@ function init() {
           } else if (nextIndex < minIndex) {
             nextIndex = maxIndex;
           }
-          chrome.tabGroups.query({collapsed: true}).then((tabGroups) => {
-            tabGroups = tabGroups.map((x) => x.id)
-            var nextTab = currentTabs[0].id;
-            for (var i = currentTabs.length - 1; i >= 0; i--) {
-              t = currentTabs[i];
-              if (t.groupId != -1 && tabGroups.includes(t.groupId)) {
-              }
-              else if (options['skipSameGroup'] === true && activeTab.groupId != -1
-                && t.groupId != activeTab.groupId && t.index <= nextIndex) {
-                nextTab = t.id;
-                break;
-              }
-              else if ((options['skipSameGroup'] != true || activeTab.groupId == -1) && t.index <= nextIndex) {
-                nextTab = t.id;
-                break;
-              }
+          for (var i = 0; i < currentTabs.length; i++) {
+            t = currentTabs[i];
+            if (t.index >= nextIndex) {
+              nextTab = t.id;
+              break
             }
-            switchTabs(nextTab);
-          })
+          }
+          switchTabs(nextTab);
+
+
         });
       }
     });
@@ -123,27 +101,15 @@ function init() {
           } else if (nextIndex < minIndex) {
             nextIndex = maxIndex;
           }
-          chrome.tabGroups.query({collapsed: true}).then((tabGroups) => {
-            console.log(tabGroups)
-            tabGroups = tabGroups.map((x) => x.id)
-
-            var nextTab = currentTabs[0].id;
-            for (var i = 0; i < currentTabs.length; i++) {
-              t = currentTabs[i];
-              if (t.groupId != -1 && tabGroups.includes(t.groupId)) {
-              }
-              else if (options['skipSameGroup'] === true && activeTab.groupId != -1
-                && t.groupId != activeTab.groupId && t.index >= nextIndex) {
-                nextTab = t.id;
-                break;
-              }
-              else if ((options['skipSameGroup'] != true || activeTab.groupId == -1) && t.index >= nextIndex) {
-                nextTab = t.id;
-                break;
-              }
+          for (var i = 0; i < currentTabs.length; i++) {
+            t = currentTabs[i];
+            if (t.index >= nextIndex) {
+              nextTab = t.id;
+              break
             }
-            switchTabs(nextTab);
-          })
+          }
+
+          switchTabs(nextTab);
         });
       }
     });
@@ -245,18 +211,11 @@ function init() {
         }
         chrome.tabs.query({currentWindow: true, pinned: true}, function (pinnedTabs) {
           var index = pinnedTabs.length
-          if (t1.groupId != -1) {
-            chrome.tabGroups.move(t1.groupId, {index: index}, function () {
-              chrome.tabs.move(t1.id, {index: index}, function () {
-              });
-            });
-          } else {
-            chrome.tabs.move(t1.id, {index: index}, function () {
-              updateAllTabTitles()
-              if (chrome.runtime.lastError) {
-              }
-            });
-          }
+          chrome.tabs.move(t1.id, {index: index}, function () {
+            updateAllTabTitles()
+            if (chrome.runtime.lastError) {
+            }
+          });
         })
       });
     }
@@ -302,4 +261,3 @@ function init() {
 }
 
 init()
-
