@@ -16,7 +16,6 @@
     "tabGroups",
     "system.memory",
     "contextMenus"
-
   ],
   "version": "2021.1.20",
   "commands": {
@@ -52,6 +51,9 @@
         "default": "Ctrl+Shift+G",
         "mac": "Command+Shift+G"
       }
+    },
+    "close-tab": {
+      "description": "close tab"
     },
     "new-tab": {
       "description": "new tab",

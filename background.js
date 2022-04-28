@@ -249,9 +249,14 @@ function init() {
       if (command.startsWith("right-tab")) {
         rightTab();
       }
-
       else if (command.startsWith("left-tab")) {
         leftTab();
+      }
+      else if (command === "close-tab") {
+        chrome.tabs.query({currentWindow: true, active: true}).then((activeTabs) => {
+          var t = activeTabs[0]
+          tabs.remove(t.id)
+        });
       }
       else if (command === "new-tab") {
         newTab();
